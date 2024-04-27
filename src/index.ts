@@ -1,9 +1,9 @@
 import axios, { AxiosInstance } from "axios";
 import type { Station } from "./types/Station";
 import { stringify } from "qs";
-import { CookieJar } from "tough-cookie";
 import { wrapper } from "axios-cookiejar-support";
 import AES from "js-crypto-aes";
+import { CookieJar } from "tough-cookie";
 
 type KoreailResponse<T> = {
   strResult: "SUCC" | "FAIL";
@@ -16,14 +16,25 @@ export class KorailSession {
   public _version = "190617001";
   public _key = "korail1234567890";
 
-  public instance: AxiosInstance = wrapper(
-    axios.create({
-      baseURL: "https://smart.letskorail.com/classes/",
-      jar: new CookieJar(),
-    })
-  );
+  public cookieJar: CookieJar;
+  public instance: AxiosInstance;
 
-  constructor(public memberNo?: string, public password?: string) {}
+  constructor(
+    public memberNo?: string,
+    public password?: string,
+    cookieJson?: CookieJar.Serialized
+  ) {
+    this.cookieJar = cookieJson
+      ? CookieJar.fromJSON(JSON.stringify(cookieJson))
+      : new CookieJar();
+
+    this.instance = wrapper(
+      axios.create({
+        baseURL: "https://smart.letskorail.com/classes/",
+        jar: this.cookieJar,
+      })
+    );
+  }
 
   async code() {
     return this.instance.post<
@@ -49,16 +60,13 @@ export class KorailSession {
       throw new Error("app.login.cphd is undefined");
     }
 
-    // const { idx, key } = data["app.login.cphd"];
+    const { idx, key } = data["app.login.cphd"];
 
-    const idx = "14";
-    const key = "5225472e1223455b765f88f97b4bad57";
+    const BLOCK_SIZE = 16;
 
     const utf8encoder = new TextEncoder();
     const encrypt_key = utf8encoder.encode(key);
-    const iv = utf8encoder.encode(key.slice(0, 16));
-
-    const BLOCK_SIZE = 16;
+    const iv = utf8encoder.encode(key.slice(0, BLOCK_SIZE));
     const value = BLOCK_SIZE - (password.length % BLOCK_SIZE);
 
     const padded_data = new Uint8Array([
@@ -70,8 +78,6 @@ export class KorailSession {
       name: "AES-CBC",
       iv,
     });
-
-    String.fromCharCode(64);
 
     return {
       idx,
