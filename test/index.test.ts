@@ -15,11 +15,11 @@ describe("KorailSession", () => {
     return session
       .login(process.env.KORAIL_ID!, process.env.KORAIL_PW!)
       .then((response) => {
-        expect(response.data["strMbCrdNo"]).toBeTruthy();
+        expect(response).toBe(process.env.KORAIL_ID!);
       });
   });
 
-  test.only("logout", () => {
+  test("logout", () => {
     const session = new KorailSession();
 
     return session

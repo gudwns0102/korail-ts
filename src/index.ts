@@ -4,12 +4,14 @@ import { stringify } from "qs";
 import { wrapper } from "axios-cookiejar-support";
 import { ModeOfOperation } from "aes-js";
 import { CookieJar } from "tough-cookie";
+import { KorailError } from "./KorailError";
+import {
+  KoreailResponse,
+  LoginResponse,
+  LoginSuccessResponse,
+} from "./types/Response";
 
-type KoreailResponse<T> = {
-  strResult: "SUCC" | "FAIL";
-  h_msg_cd: string;
-  h_msg_txt: string;
-} & T;
+export * from "./types/Station";
 
 export class KorailSession {
   public _device = "AD";
@@ -20,7 +22,7 @@ export class KorailSession {
   public instance: AxiosInstance;
 
   private eventListeners: {
-    login: Array<(data: any) => void>;
+    login: Array<(data: LoginSuccessResponse) => void>;
     logout: Array<() => void>;
   } = {
     login: [],
@@ -39,7 +41,10 @@ export class KorailSession {
     );
   }
 
-  addEventListener(event: "login", callback: (data: any) => void);
+  addEventListener(
+    event: "login",
+    callback: (data: LoginSuccessResponse) => void
+  );
   addEventListener(event: "logout", callback: () => void);
   addEventListener(event, callback) {
     if (event === "login") {
@@ -125,7 +130,7 @@ export class KorailSession {
   async login(txtMemberNo: string, txtPwd: string) {
     const { idx, encrypted_password } = await this.encryptPassword(txtPwd);
 
-    const response = await this.instance.post<KoreailResponse<{}>>(
+    const response = await this.instance.post<LoginResponse>(
       "/com.korail.mobile.login.Login",
       stringify({
         Device: "AD",
@@ -137,29 +142,33 @@ export class KorailSession {
       })
     );
 
-    if (response.data.strResult === "SUCC") {
-      this.eventListeners.login.forEach((v) => v(response.data));
+    if ("strMbCrdNo" in response.data) {
+      const data = response.data;
+      this.eventListeners.login.forEach((v) => v(data));
+      return response.data.strMbCrdNo || "";
     }
 
-    return response;
+    throw new KorailError(response.data.h_msg_txt);
   }
 
   async logout() {
-    const response = await this.instance.get<KoreailResponse<{}>>(
+    await this.instance.get<KoreailResponse<{}>>(
       "/com.korail.mobile.common.logout"
     );
 
     this.eventListeners.logout.forEach((v) => v());
 
-    return response;
+    return;
   }
 
-  stationdata() {
-    return this.instance.get<{
+  async stationdata() {
+    const { data } = await this.instance.get<{
       stns: {
         stn: Array<Station>;
       };
     }>("/com.korail.mobile.common.stationdata");
+
+    return data.stns.stn;
   }
 
   reservationView() {
