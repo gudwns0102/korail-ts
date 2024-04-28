@@ -15,6 +15,7 @@ describe("KorailSession", () => {
     return session
       .login(process.env.KORAIL_ID!, process.env.KORAIL_PW!)
       .then((response) => {
+        console.log(session.cookieJar.toJSON());
         expect(response.data["strMbCrdNo"]).toBeTruthy();
       });
   });

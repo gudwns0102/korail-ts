@@ -19,21 +19,52 @@ export class KorailSession {
   public cookieJar: CookieJar;
   public instance: AxiosInstance;
 
-  constructor(
-    public memberNo?: string,
-    public password?: string,
-    cookieJson?: CookieJar.Serialized
-  ) {
-    this.cookieJar = cookieJson
-      ? CookieJar.fromJSON(JSON.stringify(cookieJson))
-      : new CookieJar();
+  private eventListeners: {
+    login: Array<(data: any) => void>;
+    logout: Array<() => void>;
+  } = {
+    login: [],
+    logout: [],
+  };
+
+  constructor() {
+    this.cookieJar = new CookieJar();
 
     this.instance = wrapper(
       axios.create({
         baseURL: "https://smart.letskorail.com/classes/",
         jar: this.cookieJar,
+        withCredentials: true,
       })
     );
+  }
+
+  addEventListener(event: "login", callback: (data: any) => void);
+  addEventListener(event: "logout", callback: () => void);
+  addEventListener(event, callback) {
+    if (event === "login") {
+      this.eventListeners.login.push(callback);
+    } else if (event === "logout") {
+      this.eventListeners.logout.push(callback);
+    }
+  }
+
+  removeEventListener(event: "login", callback: (data: any) => void);
+  removeEventListener(event: "logout", callback: () => void);
+  removeEventListener(event, callback) {
+    if (event === "login") {
+      this.eventListeners.login = this.eventListeners.login.filter(
+        (v) => v !== callback
+      );
+    } else if (event === "logout") {
+      this.eventListeners.logout = this.eventListeners.logout.filter(
+        (v) => v !== callback
+      );
+    }
+  }
+
+  async checkLoggedIn() {
+    return (await this.code()).data.loginFlg === "Y";
   }
 
   async code() {
@@ -44,6 +75,7 @@ export class KorailSession {
           idx: string;
           key: string;
         };
+        loginFlg: "Y" | "N";
       }>
     >(
       "/com.korail.mobile.common.code.do",
@@ -93,7 +125,7 @@ export class KorailSession {
   async login(txtMemberNo: string, txtPwd: string) {
     const { idx, encrypted_password } = await this.encryptPassword(txtPwd);
 
-    return this.instance.post<KoreailResponse<{}>>(
+    const response = await this.instance.post<KoreailResponse<{}>>(
       "/com.korail.mobile.login.Login",
       stringify({
         Device: "AD",
@@ -104,6 +136,22 @@ export class KorailSession {
         idx,
       })
     );
+
+    if (response.data.strResult === "SUCC") {
+      this.eventListeners.login.forEach((v) => v(response.data));
+    }
+
+    return response;
+  }
+
+  async logout() {
+    const response = await this.instance.get<KoreailResponse<{}>>(
+      "/com.korail.mobile.common.logout"
+    );
+
+    this.eventListeners.logout.forEach((v) => v());
+
+    return response;
   }
 
   stationdata() {
