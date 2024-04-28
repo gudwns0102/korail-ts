@@ -15,9 +15,25 @@ describe("KorailSession", () => {
     return session
       .login(process.env.KORAIL_ID!, process.env.KORAIL_PW!)
       .then((response) => {
-        console.log(session.cookieJar.toJSON());
         expect(response.data["strMbCrdNo"]).toBeTruthy();
       });
+  });
+
+  test.only("logout", () => {
+    const session = new KorailSession();
+
+    return session
+      .login(process.env.KORAIL_ID!, process.env.KORAIL_PW!)
+      .then(() =>
+        session.myTicketList().then((before) =>
+          session.logout().then(() =>
+            session.myTicketList().then((after) => {
+              expect(before.data.strResult).toBe("SUCC");
+              expect(after.data.strResult).toBe("FAIL");
+            })
+          )
+        )
+      );
   });
 
   test("stationdata", () => {
