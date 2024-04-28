@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import type { Station } from "./types/Station";
 import { stringify } from "qs";
 import { wrapper } from "axios-cookiejar-support";
-import AES from "js-crypto-aes";
+import { ModeOfOperation } from "aes-js";
 import { CookieJar } from "tough-cookie";
 
 type KoreailResponse<T> = {
@@ -74,10 +74,8 @@ export class KorailSession {
       ...new Array(value).fill(value),
     ]);
 
-    const result = await AES.encrypt(padded_data, encrypt_key, {
-      name: "AES-CBC",
-      iv,
-    });
+    const aesCbc = new ModeOfOperation.cbc(encrypt_key, iv);
+    const result = aesCbc.encrypt(padded_data);
 
     return {
       idx,
