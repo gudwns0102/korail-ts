@@ -9,9 +9,16 @@ import {
   KoreailResponse,
   LoginResponse,
   LoginSuccessResponse,
+  ScheduleViewSuccessResponse,
 } from "./types/Response";
+import { TrainType } from "./types/TrainType";
+import { YYYYMMDD, hhmmss } from "./types";
+import { Schedule } from "./types/Schedule";
+import { AdultPassenger } from "./types/Passenger";
 
 export * from "./types/Station";
+export * from "./types/Schedule";
+export * from "./types";
 
 export class KorailSession {
   public _device = "AD";
@@ -68,11 +75,11 @@ export class KorailSession {
     }
   }
 
-  async checkLoggedIn() {
+  checkLoggedIn = async () => {
     return (await this.code()).data.loginFlg === "Y";
-  }
+  };
 
-  async code() {
+  code = async () => {
     return this.instance.post<
       KoreailResponse<{
         "app.login.cphd"?: {
@@ -88,9 +95,9 @@ export class KorailSession {
         code: "app.login.cphd",
       })
     );
-  }
+  };
 
-  async encryptPassword(password: string) {
+  encryptPassword = async (password: string) => {
     const { data } = await this.code();
 
     if (data["app.login.cphd"] === undefined) {
@@ -125,9 +132,9 @@ export class KorailSession {
         )
       ),
     };
-  }
+  };
 
-  async login(txtMemberNo: string, txtPwd: string) {
+  login = async (txtMemberNo: string, txtPwd: string) => {
     const { idx, encrypted_password } = await this.encryptPassword(txtPwd);
 
     const response = await this.instance.post<LoginResponse>(
@@ -149,9 +156,9 @@ export class KorailSession {
     }
 
     throw new KorailError(response.data.h_msg_txt);
-  }
+  };
 
-  async logout() {
+  logout = async () => {
     await this.instance.get<KoreailResponse<{}>>(
       "/com.korail.mobile.common.logout"
     );
@@ -159,9 +166,9 @@ export class KorailSession {
     this.eventListeners.logout.forEach((v) => v());
 
     return;
-  }
+  };
 
-  async stationdata() {
+  stationdata = async () => {
     const { data } = await this.instance.get<{
       stns: {
         stn: Array<Station>;
@@ -169,9 +176,9 @@ export class KorailSession {
     }>("/com.korail.mobile.common.stationdata");
 
     return data.stns.stn;
-  }
+  };
 
-  reservationView() {
+  reservationView = () => {
     return this.instance.get<
       KoreailResponse<{
         jrny_infos: {
@@ -185,9 +192,9 @@ export class KorailSession {
         Key: this._key,
       },
     });
-  }
+  };
 
-  myTicketList() {
+  myTicketList = () => {
     return this.instance.get<KoreailResponse<{}>>(
       "/com.korail.mobile.myTicket.MyTicketList",
       {
@@ -203,5 +210,105 @@ export class KorailSession {
         },
       }
     );
-  }
+  };
+
+  scheduleView = ({
+    dep,
+    arr,
+    txtGoAbrdDt,
+    txtGoHour = "000000",
+    train_type = TrainType.ALL,
+  }: {
+    dep: string;
+    arr: string;
+    txtGoAbrdDt: YYYYMMDD;
+    txtGoHour?: hhmmss;
+    train_type?: TrainType;
+  }) => {
+    return this.instance.get<KoreailResponse<ScheduleViewSuccessResponse>>(
+      "/com.korail.mobile.seatMovie.ScheduleView",
+      {
+        params: {
+          Device: this._device,
+          radJobId: "1",
+          selGoTrain: train_type,
+          txtCardPsgCnt: "0",
+          txtGdNo: "",
+          txtGoAbrdDt,
+          txtGoEnd: arr,
+          txtGoHour,
+          txtGoStart: dep,
+          txtJobDv: "",
+          txtMenuId: "11",
+          txtPsgFlg_1: 1,
+          txtPsgFlg_2: 0,
+          txtPsgFlg_8: 0,
+          txtPsgFlg_3: 0,
+          txtPsgFlg_4: "0",
+          txtPsgFlg_5: "0",
+          txtSeatAttCd_2: "000",
+          txtSeatAttCd_3: "000",
+          txtSeatAttCd_4: "015",
+          txtTrnGpCd: train_type,
+          Version: this._version,
+        },
+      }
+    );
+  };
+
+  reserve = async (schedule: Schedule) => {
+    const passengers = [new AdultPassenger()];
+
+    const params = {
+      Device: this._device,
+      Version: this._version,
+      Key: this._key,
+      txtGdNo: "",
+      txtJobId: "1101",
+      txtTotPsgCnt: 1,
+      txtSeatAttCd1: "000",
+      txtSeatAttCd2: "000",
+      txtSeatAttCd3: "000",
+      txtSeatAttCd4: "015",
+      txtSeatAttCd5: "000",
+      hidFreeFlg: "N",
+      txtStndFlg: "N",
+      txtMenuId: "11",
+      txtSrcarCnt: "0",
+      txtJrnyCnt: "1",
+
+      // 여정정보
+      txtJrnySqno1: "001",
+      txtJrnyTpCd1: "11",
+      txtDptDt1: schedule.h_dpt_dt,
+      txtDptRsStnCd1: schedule.h_dpt_rs_stn_cd,
+      txtDptTm1: schedule.h_dpt_tm,
+      txtArvRsStnCd1: schedule.h_arv_rs_stn_cd,
+      txtTrnNo1: schedule.h_trn_no,
+      txtRunDt1: schedule.h_run_dt,
+      txtTrnClsfCd1: schedule.h_trn_clsf_cd,
+      txtPsrmClCd1: "1",
+      txtTrnGpCd1: schedule.h_trn_gp_cd,
+      txtChgFlg1: "",
+
+      // txtTotPsgCnt 만큼 반복
+      // txtPsgTpCd1		: '1',		// 손님 종류 (어른, 어린이)
+      // txtDiscKndCd1	: '000',	// 할인 타입 (경로, 동반유아, 군장병 등..)
+      // txtCompaCnt1		: '1',		// 인원수
+      // txtCardCode_1	: '',
+      // txtCardNo_1		: '',
+      // txtCardPw_1		: '',
+    };
+
+    passengers.forEach((psgr, idx) => {
+      Object.assign(params, psgr.getDict(idx + 1));
+    });
+
+    return this.instance.get<KoreailResponse<{}>>(
+      "/com.korail.mobile.certification.TicketReservation",
+      {
+        params,
+      }
+    );
+  };
 }

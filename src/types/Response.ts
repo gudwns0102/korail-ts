@@ -1,3 +1,5 @@
+import { Schedule } from "./Schedule";
+
 export type KoreailResponse<T> = {
   strResult: "SUCC" | "FAIL";
   h_msg_cd: string;
@@ -76,3 +78,9 @@ export type LoginResponse = KoreailResponse<
       // 실패
     }
 >;
+
+export type ScheduleViewSuccessResponse = {
+  trn_infos: {
+    trn_info: Array<Schedule>;
+  };
+};
