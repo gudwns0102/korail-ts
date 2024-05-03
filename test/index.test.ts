@@ -68,7 +68,7 @@ describe("KorailSession", () => {
       });
   });
 
-  test.only("reserve", () => {
+  test("reserve", () => {
     const session = new KorailSession();
 
     return session
@@ -91,8 +91,6 @@ describe("KorailSession", () => {
             }
 
             const { data } = await session.reserve(available);
-
-            console.log(data);
 
             expect(data).toBe(200);
           })
