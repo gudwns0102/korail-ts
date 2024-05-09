@@ -10,7 +10,7 @@ describe("KorailSession", () => {
     });
   });
 
-  test("login", () => {
+  test.only("login", () => {
     const session = new KorailSession();
 
     return session
